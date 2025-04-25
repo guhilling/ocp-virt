@@ -1,0 +1,90 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: rhel9-demo-mig
+spec:
+  dataVolumeTemplates:
+  - apiVersion: cdi.kubevirt.io/v1beta1
+    kind: DataVolume
+    metadata:
+      name: rhel9-demo-mig
+    spec:
+      sourceRef:
+        kind: DataSource
+        name: rhel9
+        namespace: openshift-virtualization-os-images
+      storage:
+        volumeMode: Block
+        accessModes:
+        - ReadWriteMany
+        resources:
+          requests:
+            storage: 30Gi
+        storageClassName: efs-sc
+  runStrategy: RerunOnFailure
+  template:
+    metadata:
+      annotations:
+        vm.kubevirt.io/flavor: small
+        vm.kubevirt.io/os: rhel9
+        vm.kubevirt.io/workload: server
+      labels:
+        kubevirt.io/domain: rhel9-demo-mig
+        kubevirt.io/size: small
+        network.kubevirt.io/headlessService: headless
+    spec:
+      evictionStrategy: LiveMigrate
+      architecture: amd64
+      domain:
+        cpu:
+          cores: 1
+          sockets: 2
+          threads: 1
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: rootdisk
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          interfaces:
+          - masquerade: {}
+            model: virtio
+            name: default
+          networkInterfaceMultiqueue: true
+          rng: {}
+        features:
+          acpi: {}
+          smm:
+            enabled: true
+        firmware:
+          bootloader:
+            efi: {}
+        machine:
+          type: pc-q35-rhel9.2.0
+        memory:
+          guest: 4Gi
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 180
+      tolerations:
+      - effect: NoSchedule
+        key: sandbox-cnv
+        operator: Exists
+      volumes:
+      - dataVolume:
+          name: rhel9-demo-mig
+        name: rootdisk
+      - cloudInitNoCloud:
+          userData: |
+            #cloud-config
+            chpasswd:
+              expire: false
+            password: demo
+            user: gunnar
+            ssh_authorized_keys:
+            - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP0yGp3kZZ3/+qRuvhktFQr3aAo1Ta6d9N5yFB8S8pQV gunnar@hilling.de
+        name: cloudinitdisk
+        
