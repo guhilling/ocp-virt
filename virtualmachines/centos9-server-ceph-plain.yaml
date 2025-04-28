@@ -1,0 +1,87 @@
+
+apiVersion: v1
+items:
+- apiVersion: kubevirt.io/v1
+  kind: VirtualMachine
+  metadata:
+    labels:
+      app: demo-block
+      kubevirt.io/dynamic-credentials-support: "true"
+      vm.kubevirt.io/template: centos-stream9-server-small
+    name: demo-block
+  spec:
+    dataVolumeTemplates:
+    - apiVersion: cdi.kubevirt.io/v1beta1
+      kind: DataVolume
+      metadata:
+        name: demo-block
+      spec:
+        sourceRef:
+          kind: DataSource
+          name: centos-stream9
+          namespace: openshift-virtualization-os-images
+        storage:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 30Gi
+          storageClassName: ocs-external-storagecluster-ceph-rbd
+          volumeMode: Block
+    running: true
+    template:
+      metadata:
+        annotations:
+          vm.kubevirt.io/flavor: small
+          vm.kubevirt.io/os: centos-stream9
+          vm.kubevirt.io/workload: server
+        labels:
+          app: apache
+          kubevirt.io/domain: demo-block
+          kubevirt.io/size: small
+      spec:
+        accessCredentials:
+        - sshPublicKey:
+            propagationMethod:
+              noCloud: {}
+            source:
+              secret:
+                secretName: gunnar
+        architecture: amd64
+        domain:
+          cpu:
+            cores: 1
+            sockets: 2
+            threads: 1
+          devices:
+            disks:
+            - disk:
+                bus: virtio
+              name: rootdisk
+            - disk:
+                bus: virtio
+              name: cloudinitdisk
+            interfaces:
+            - masquerade: {}
+              model: virtio
+              name: default
+            rng: {}
+          memory:
+            guest: 4Gi
+        networks:
+        - name: default
+          pod: {}
+        terminationGracePeriodSeconds: 180
+        volumes:
+        - dataVolume:
+            name: demo-block
+          name: rootdisk
+        - cloudInitNoCloud:
+            userData: |-
+              #cloud-config
+              user: student
+              password: student
+              chpasswd: { expire: False }
+          name: cloudinitdisk
+kind: List
+metadata: {}
